@@ -14,13 +14,12 @@ public class Game extends JPanel implements ActionListener {
 
 
     // Speed should change this
-    private Timer t = new Timer(5, this);
+    private Timer t = new Timer(10, this);
 
     private boolean reset;
+    private boolean won = false;
 
-    private HashMap<Integer, String> lostX = new HashMap<>();
-    private HashMap<Integer, String> lostY = new HashMap<>();
-
+    private ArrayList<Location> deaths = new ArrayList<>();
     private ArrayList<Rectangle2D> collision = new ArrayList<>();
 
     private Ellipse2D ai;
@@ -28,7 +27,9 @@ public class Game extends JPanel implements ActionListener {
     private int move = 0;
     private int x = 120;
     private int y = 100;
-    private String direction = "right";
+
+    private Location.Direction direction = Location.Direction.RIGHT;
+    private Location aiLocation = new Location(x, y, direction);
 
     private int stability = 0;
 
@@ -49,10 +50,10 @@ public class Game extends JPanel implements ActionListener {
 
 
         g2d.setColor(Color.BLACK);
-        Rectangle2D box1 = new Rectangle(80, 80, 20, 100);
+        Rectangle2D box1 = new Rectangle(80, 80, 20, 80);
         g2d.fill(box1);
 
-        Rectangle2D box2 = new Rectangle(160, 110, 20, 80);
+        Rectangle2D box2 = new Rectangle(160, 110, 20, 70);
         g2d.fill(box2);
 
         Rectangle2D box3 = new Rectangle(80, 60, 120, 20);
@@ -61,7 +62,7 @@ public class Game extends JPanel implements ActionListener {
         Rectangle2D box4 = new Rectangle(80, 160, 80, 20);
         g2d.fill(box4);
 
-        Rectangle2D box5 = new Rectangle(160, 110, 40, 20);
+        Rectangle2D box5 = new Rectangle(160, 110, 60, 20);
         g2d.fill(box5);
 
         Rectangle2D box6 = new Rectangle(200, 60, 20, 60);
@@ -69,11 +70,10 @@ public class Game extends JPanel implements ActionListener {
 
         if (reset) {
             x = 120;
-            y = 90;
+            y = 100;
+
             reset = false;
             move = 0;
-            //direction = "right";
-
             collision.add(box1);
             collision.add(box2);
             collision.add(box3);
@@ -81,8 +81,9 @@ public class Game extends JPanel implements ActionListener {
             collision.add(box5);
             collision.add(box6);
 
+            // Increasing on each death
             stability++;
-            // Each new generation increases intelligence/stability
+            aiLocation = new Location(x, y, direction);
         }
 
 
@@ -90,90 +91,81 @@ public class Game extends JPanel implements ActionListener {
         g2d.setColor(Color.RED);
         Ellipse2D p = new Ellipse2D.Double(x, y, 20, 20);
         g2d.fill(p);
-
         ai = p;
 
+        String deathCount = "Deaths: " + deaths.size();
+        g2d.drawString(deathCount, width / 2 - 40, height / 2);
+
+        if(won){
+            g2d.setColor(Color.BLACK);
+            g2d.drawString("You evolved enough to make it out!", 20, (height/2) + 20);
+            g2d.drawString("It only took " + deaths.size() + " deaths!", 20, (height/2) + 40);
+        }
     }
 
     @Override
     public void actionPerformed(ActionEvent e) {
 
-
         // Max number of turns/moves before ending
-        if(move >= 16000){
+        if(move >= 16000 || won){
             return;
         }
 
-        // x > 160 is the current location that will award "victory"
-        if(x > 160){
-            System.out.println("You evolved enough and eventually made it out!");
-            move = 16000;
+        // Change to check for collision with winning location
+        if(x > 170){
+            won = true;
+            repaint();
+            return;
         }
-
 
         // checks if has collided, if so, it goes one move before to prevent future deaths
         if(checkCollision()){
-
-            if(direction.equals("left")){
-                lostX.put(x + 1, direction);
-            }else if(direction.equals("right")){
-                lostX.put(x - 1, direction);
-            }else if(direction.equals("up")){
-                lostY.put(y + 1, direction);
-            }else if(direction.equals("down")){
-                lostY.put(y - 1, direction);
+            if(direction.equals(Location.Direction.LEFT)){
+                deaths.add(new Location(this.x + 1, y, direction));
+            }else if(direction.equals(Location.Direction.RIGHT)){
+                deaths.add(new Location(this.x - 1, y, direction));
+            }else if(direction.equals(Location.Direction.UP)){
+                deaths.add(new Location(this.x, y + 1, direction));
+            }else if(direction.equals(Location.Direction.DOWN)){
+                deaths.add(new Location(x, y - 1, direction));
             }
             reset = true;
         }else{
-
             //System.out.println(y + " and " + lostX.keySet() + ", going " + direction);
 
-
-            // After each move, next will have chance of being random
+            // After each move, chance to change direction randomly
             changeDirection(false);
 
             while(willLose()){
-                //System.out.println("My ancestors saved me! IQ: " + stability);
+                System.out.println("My ancestors saved me! IQ: " + stability);
 
                 // Will for sure change direction and not end up dead
                 changeDirection(true);
 
-                // Stability goes up when avoiding death, to be changed
-                stability ++;
             }
-            if(direction.equals("right")){
-                x++;
-            }else if(direction.equals("left")){
-                x--;
-            }else if(direction.equals("up")){
-                y--;
-            }else if(direction.equals("down")){
-                y++;
-            }
-
-            move++;
+            move(direction);
         }
 
         repaint();
     }
 
-    private void changeDirection(boolean smart){
+    private void changeDirection(boolean preventDeath){
         //System.out.println("changing direction..." + direction);
 
-        // "Smart" means if next move will end up in Death, it will for sure change direction
-        if(smart) {
+        // "Prevent death" as true will ensure next move won't be same as last
+        if(preventDeath) {
             switch (direction) {
-                case "right":
-                    direction = "up";
+                case RIGHT:
+                    direction = Location.Direction.UP;
                     break;
-                case "left":
-                    direction = "down";
+                case LEFT:
+                    direction = Location.Direction.DOWN;
                     break;
-                case "up":
-                    direction = "left";
+                case UP:
+                    direction = Location.Direction.LEFT;
                     break;
-                case "down":
-                    direction = "right";
+                case DOWN:
+                    direction = Location.Direction.RIGHT;
                     break;
             }
         }else{
@@ -181,25 +173,26 @@ public class Game extends JPanel implements ActionListener {
             Random rand = new Random();
             int chance = rand.nextInt(stability + 4);
             if(chance == 0){
-                direction = "up";
+                direction = Location.Direction.UP;
             }else if (chance == 1){
-                direction = "down";
+                direction = Location.Direction.DOWN;
             }else if(chance == 2){
-                direction = "right";
+                direction = Location.Direction.RIGHT;
             }else if(chance == 3){
-                direction = "left";
+                direction = Location.Direction.LEFT;
             }else{
                 // (stability - 3) /stability = chance to continue going straight, higher stability = less randomness
             }
 
         }
-
+        aiLocation.setDirection(direction);
     }
 
+    // Check if colliding with objects
     private boolean checkCollision(){
         if(!collision.isEmpty()){
             int i = 0;
-            while(i <= collision.size() - 1){
+            while(i < collision.size()){
 
                 if(ai.getBounds2D().intersects(collision.get(i).getBounds2D())){
                     return true;
@@ -211,12 +204,27 @@ public class Game extends JPanel implements ActionListener {
         return false;
     }
 
+    // If AI continues with direction, will it collide based on previous knowledge?
     private boolean willLose(){
-        if(direction.equals("right") || direction.equals("left")){
-            return (lostX.containsKey(x) && lostX.get(x).equals(direction));
-        }else{
-            return (lostY.containsKey(y) && lostY.get(y).equals(direction));
+        return deaths.contains(aiLocation);
+    }
+
+    private void move(Location.Direction direction){
+
+        if(direction.equals(Location.Direction.RIGHT)){
+            x++;
+        }else if(direction.equals(Location.Direction.LEFT)){
+            x--;
+        }else if(direction.equals(Location.Direction.UP)){
+            y--;
+        }else if(direction.equals(Location.Direction.DOWN)){
+            y++;
         }
+
+        aiLocation.setX(x);
+        aiLocation.setY(y);
+
+        move++;
     }
 
 }

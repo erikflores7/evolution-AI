@@ -2,10 +2,9 @@ import java.awt.*;
 import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Rectangle2D;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.Random;
+import java.util.*;
 import javax.swing.*;
+import javax.swing.Timer;
 
 
 public class Game extends JPanel implements ActionListener {
@@ -14,30 +13,36 @@ public class Game extends JPanel implements ActionListener {
 
 
     // Speed should change this
-    private Timer t = new Timer(10, this);
+    private Timer t = new Timer(5, this);
 
     private boolean reset;
     private boolean won = false;
 
-    private ArrayList<Location> deaths = new ArrayList<>();
+    //private ArrayList<Location> deaths = new ArrayList<>();
     private ArrayList<Rectangle2D> collision = new ArrayList<>();
+    private Rectangle2D survivalBox;
 
-    private Ellipse2D ai;
+    //private Ellipse2D ai;
 
-    private int move = 0;
-    private int x = 120;
-    private int y = 100;
+    //private int move = 0;
+    //private int x = 120;
+    //private int y = 100;
 
-    private Location.Direction direction = Location.Direction.RIGHT;
-    private Location aiLocation = new Location(x, y, direction);
+    private int deaths = 0;
 
-    private int stability = 0;
+    //private Location.Direction direction = Location.Direction.RIGHT;
+    //private Location aiLocation = new Location(x, y, direction);
+    //private ArrayList<AI> aiList = new ArrayList<>();
+    private HashMap<AI, Ellipse2D> aiList = new HashMap<>();
+
+    //private int stability = 0;
 
     public Game() {
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);
         reset = true;
-        t.setInitialDelay(100);
+
+        t.setInitialDelay(200);
         t.start();
     }
 
@@ -48,8 +53,7 @@ public class Game extends JPanel implements ActionListener {
         height = getHeight();
         width = getWidth();
 
-
-        g2d.setColor(Color.BLACK);
+       /* g2d.setColor(Color.BLACK);
         Rectangle2D box1 = new Rectangle(80, 80, 20, 80);
         g2d.fill(box1);
 
@@ -66,40 +70,45 @@ public class Game extends JPanel implements ActionListener {
         g2d.fill(box5);
 
         Rectangle2D box6 = new Rectangle(200, 60, 20, 60);
-        g2d.fill(box6);
+        g2d.fill(box6); */
 
-        if (reset) {
-            x = 120;
-            y = 100;
+       if(!won){
+           if (collision.isEmpty()) {
+               for (int i = 0; i < 20; i++) {
+                   Rectangle2D rect = new Rectangle((int) Math.floor(Math.random() * width - 10), (int) Math.floor(Math.random() * height / 2 - 10), 20, 20);
+                   collision.add(rect);
+               }
+               survivalBox = new Rectangle((int) Math.floor(Math.random() * width - 20), (int) Math.floor(Math.random() * height / 2 - 20), 40, 40);
+               aiList.put(new AI(null), new Ellipse2D.Double(120, 100, 20, 20));
+           }
 
-            reset = false;
-            move = 0;
-            collision.add(box1);
-            collision.add(box2);
-            collision.add(box3);
-            collision.add(box4);
-            collision.add(box5);
-            collision.add(box6);
+           for (Rectangle2D aCollision : collision) {
+               g2d.fill(aCollision);
+           }
 
-            // Increasing on each death
-            stability++;
-            aiLocation = new Location(x, y, direction);
-        }
+           for (AI ai : aiList.keySet()) {
+               g2d.setColor(Color.RED);
+               Ellipse2D p = new Ellipse2D.Double(ai.getLocation().getX(), ai.getLocation().getY(), ai.getSize(), ai.getSize());
+               g2d.fill(p);
+               aiList.put(ai, p);
+           }
 
+           g2d.setColor(Color.GREEN);
+           g2d.fill(survivalBox);
 
-        // AI
-        g2d.setColor(Color.RED);
-        Ellipse2D p = new Ellipse2D.Double(x, y, 20, 20);
-        g2d.fill(p);
-        ai = p;
-
-        String deathCount = "Deaths: " + deaths.size();
-        g2d.drawString(deathCount, width / 2 - 40, height / 2);
-
-        if(won){
+           String deathCount = "Deaths: " + deaths;
+           g2d.drawString(deathCount, width / 2 - 40, height / 2);
+       }else{
             g2d.setColor(Color.BLACK);
             g2d.drawString("You evolved enough to make it out!", 20, (height/2) + 20);
-            g2d.drawString("It only took " + deaths.size() + " deaths!", 20, (height/2) + 40);
+            g2d.drawString("It only took " + deaths + " deaths!", 20, (height/2) + 40);
+
+            for(AI ai : aiList.keySet()){
+                System.out.println("Generation: " + ai.getGeneration());
+                System.out.println("Mutation Rate: " + ai.getMutationRate());
+                System.out.println("Reproduction Rate: " + ai.getReproductionRate());
+
+            }
         }
     }
 
@@ -107,124 +116,112 @@ public class Game extends JPanel implements ActionListener {
     public void actionPerformed(ActionEvent e) {
 
         // Max number of turns/moves before ending
-        if(move >= 16000 || won){
+        if(won){
             return;
         }
 
-        // Change to check for collision with winning location
-        if(x > 170){
-            won = true;
-            repaint();
-            return;
-        }
+        HashMap<AI, Ellipse2D> temporary = new HashMap<>();
+        Iterator iterator = aiList.entrySet().iterator();
+        while(iterator.hasNext()){
 
-        // checks if has collided, if so, it goes one move before to prevent future deaths
-        if(checkCollision()){
-            if(direction.equals(Location.Direction.LEFT)){
-                deaths.add(new Location(this.x + 1, y, direction));
-            }else if(direction.equals(Location.Direction.RIGHT)){
-                deaths.add(new Location(this.x - 1, y, direction));
-            }else if(direction.equals(Location.Direction.UP)){
-                deaths.add(new Location(this.x, y + 1, direction));
-            }else if(direction.equals(Location.Direction.DOWN)){
-                deaths.add(new Location(x, y - 1, direction));
+            Map.Entry entry =  (Map.Entry) iterator.next();
+            AI ai = (AI) entry.getKey();
+            Ellipse2D shape = (Ellipse2D) entry.getValue();
+
+            if(survived(shape)){
+                won = true;
+                repaint();
+                return;
             }
-            reset = true;
-        }else{
-            //System.out.println(y + " and " + lostX.keySet() + ", going " + direction);
 
-            // After each move, chance to change direction randomly
-            changeDirection(false);
-
-            while(willLose()){
-                System.out.println("My ancestors saved me! IQ: " + stability);
-
-                // Will for sure change direction and not end up dead
-                changeDirection(true);
-
+            // checks if has collided/died of age
+            // Delete and create offspring
+            if(checkCollision(ai, shape) || ai.getAge() >= ai.getDeathAge()){
+                if(ai.die()){
+                    temporary.put(new AI(ai), new Ellipse2D.Double(120, 100, 20, 20));
+                }
+                temporary.put(new AI(ai), new Ellipse2D.Double(120, 100, 20, 20));
+                iterator.remove();
+                deaths++;
+                reset = true;
+            }else{
+                // After each move, chance to change direction randomly
+                changeDirection(false, ai);
+                while(willLose(ai)){
+                    // Will for sure change direction and not end up dead
+                    changeDirection(true, ai);
+                }
+                ai.move();
             }
-            move(direction);
         }
+        aiList.putAll(temporary);
 
         repaint();
     }
 
-    private void changeDirection(boolean preventDeath){
-        //System.out.println("changing direction..." + direction);
+    private void changeDirection(boolean preventDeath, AI ai){
+        Location.Direction direction = ai.getDirection();
 
         // "Prevent death" as true will ensure next move won't be same as last
         if(preventDeath) {
             switch (direction) {
                 case RIGHT:
-                    direction = Location.Direction.UP;
+                    ai.changeDirection(Location.Direction.LEFT);
                     break;
                 case LEFT:
-                    direction = Location.Direction.DOWN;
+                    ai.changeDirection(Location.Direction.UP);
                     break;
                 case UP:
-                    direction = Location.Direction.LEFT;
+                    ai.changeDirection(Location.Direction.DOWN);
                     break;
                 case DOWN:
-                    direction = Location.Direction.RIGHT;
+                    ai.changeDirection(Location.Direction.RIGHT);
                     break;
             }
         }else{
-
             Random rand = new Random();
-            int chance = rand.nextInt(stability + 4);
+            int chance = rand.nextInt(ai.getStability() + 4);
             if(chance == 0){
-                direction = Location.Direction.UP;
+                ai.changeDirection(Location.Direction.UP);
             }else if (chance == 1){
-                direction = Location.Direction.DOWN;
+                ai.changeDirection(Location.Direction.DOWN);
             }else if(chance == 2){
-                direction = Location.Direction.RIGHT;
+                ai.changeDirection(Location.Direction.RIGHT);
             }else if(chance == 3){
-                direction = Location.Direction.LEFT;
+                ai.changeDirection(Location.Direction.LEFT);
             }else{
                 // (stability - 3) /stability = chance to continue going straight, higher stability = less randomness
             }
 
         }
-        aiLocation.setDirection(direction);
     }
 
     // Check if colliding with objects
-    private boolean checkCollision(){
+    private boolean checkCollision(AI ai, Ellipse2D shape){
         if(!collision.isEmpty()){
             int i = 0;
             while(i < collision.size()){
-
-                if(ai.getBounds2D().intersects(collision.get(i).getBounds2D())){
+                if(shape.getBounds2D().intersects(collision.get(i).getBounds2D())){
                     return true;
                 }
-
                 i++;
             }
         }
-        return false;
+        int x = ai.getLocation().getX();
+        int y = ai.getLocation().getY();
+        return x >= width - 10|| x <= 0 || y <= 0 || y >= height / 2;
     }
 
     // If AI continues with direction, will it collide based on previous knowledge?
-    private boolean willLose(){
-        return deaths.contains(aiLocation);
+    private boolean willLose(AI ai){
+        return ai.getDeaths().contains(ai.getLocation());
     }
 
-    private void move(Location.Direction direction){
-
-        if(direction.equals(Location.Direction.RIGHT)){
-            x++;
-        }else if(direction.equals(Location.Direction.LEFT)){
-            x--;
-        }else if(direction.equals(Location.Direction.UP)){
-            y--;
-        }else if(direction.equals(Location.Direction.DOWN)){
-            y++;
+    private boolean survived(Ellipse2D shape){
+        if(survivalBox != null){
+            return survivalBox.getBounds2D().intersects(shape.getBounds2D());
         }
-
-        aiLocation.setX(x);
-        aiLocation.setY(y);
-
-        move++;
+        return false;
     }
 
 }

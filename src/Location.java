@@ -5,7 +5,7 @@ public class Location {
     private Direction direction;
 
     public enum Direction{
-        RIGHT, LEFT, DOWN, UP;
+        RIGHT, LEFT, DOWN, UP
     }
 
     public Location(int x, int y, Direction direction){
@@ -25,15 +25,15 @@ public class Location {
         return Integer.valueOf(x + "0" + y + "0" + direction.hashCode());
     }
 
-    private int getX() {
+    public int getX() {
         return x;
     }
 
-    private int getY() {
+    public int getY() {
         return y;
     }
 
-    private Direction getDirection(){
+    public Direction getDirection(){
         return direction;
     }
 

@@ -5,17 +5,14 @@
 a new circle that is smarter and remembers what caused the previous death. With more deaths and more generations, it becomes smarter
  and could prevent dying and reaching the end.
 
-    Added Mutation's to the circle's "genes" (Size, Reproduction Rate, Mutation Rate, etc.) and Duplication/Splitting of the
-    parent circle that remembers their deaths as well
+ At a certain level of intelligence, movement is upgraded and randomness is greatly reduced and instead movement is based on what gets
+ the circle closer to the end location.
+
+ Fusion is a mutation that can be attained and happens when 2 circles that can fuse collide, most traits are either the first or second's
+ but some are added together
 
    TODO:
-* Add use for "Intelligence" and other genes
 * Add menu and ability to change starting settings
-* Add chance for collision to cause circles to conjoin
-    - Genes would have 50/50 chance of being in child's
-* Add color or something to distinguish where circles came from similar to family tree
-* Add more Mutation possibilities such as forgetting locations
-* Add random spawning
 * Make sure spawn does not already have a block of death/survival
 * Add chance for going extinct and losing if dying before reproducing or something similar
 * Add better random generation of landscape

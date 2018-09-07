@@ -11,36 +11,22 @@ public class Game extends JPanel implements ActionListener {
 
     private int height, width;
 
-
     // Speed should change this
     private Timer t = new Timer(5, this);
 
-    private boolean reset;
     private boolean won = false;
 
-    //private ArrayList<Location> deaths = new ArrayList<>();
     private ArrayList<Rectangle2D> collision = new ArrayList<>();
     private Rectangle2D survivalBox;
-
-    //private Ellipse2D ai;
-
-    //private int move = 0;
-    //private int x = 120;
-    //private int y = 100;
+    private int survivalX, survivalY;
 
     private int deaths = 0;
 
-    //private Location.Direction direction = Location.Direction.RIGHT;
-    //private Location aiLocation = new Location(x, y, direction);
-    //private ArrayList<AI> aiList = new ArrayList<>();
     private HashMap<AI, Ellipse2D> aiList = new HashMap<>();
-
-    //private int stability = 0;
 
     public Game() {
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);
-        reset = true;
 
         t.setInitialDelay(200);
         t.start();
@@ -53,33 +39,16 @@ public class Game extends JPanel implements ActionListener {
         height = getHeight();
         width = getWidth();
 
-       /* g2d.setColor(Color.BLACK);
-        Rectangle2D box1 = new Rectangle(80, 80, 20, 80);
-        g2d.fill(box1);
-
-        Rectangle2D box2 = new Rectangle(160, 110, 20, 70);
-        g2d.fill(box2);
-
-        Rectangle2D box3 = new Rectangle(80, 60, 120, 20);
-        g2d.fill(box3);
-
-        Rectangle2D box4 = new Rectangle(80, 160, 80, 20);
-        g2d.fill(box4);
-
-        Rectangle2D box5 = new Rectangle(160, 110, 60, 20);
-        g2d.fill(box5);
-
-        Rectangle2D box6 = new Rectangle(200, 60, 20, 60);
-        g2d.fill(box6); */
-
        if(!won){
            if (collision.isEmpty()) {
-               for (int i = 0; i < 20; i++) {
+               for (int i = 0; i < 26; i++) {
                    Rectangle2D rect = new Rectangle((int) Math.floor(Math.random() * width - 10), (int) Math.floor(Math.random() * height / 2 - 10), 20, 20);
                    collision.add(rect);
                }
-               survivalBox = new Rectangle((int) Math.floor(Math.random() * width - 20), (int) Math.floor(Math.random() * height / 2 - 20), 40, 40);
-               aiList.put(new AI(null), new Ellipse2D.Double(120, 100, 20, 20));
+               survivalX = (int) Math.floor(Math.random() * width - 20);
+               survivalY = (int) Math.floor(Math.random() * height / 2 - 20);
+               survivalBox = new Rectangle(survivalX, survivalY, 40, 40);
+               aiList.put(new AI(null, null, survivalX, survivalY), new Ellipse2D.Double(120, 100, 20, 20));
            }
 
            for (Rectangle2D aCollision : collision) {
@@ -87,7 +56,7 @@ public class Game extends JPanel implements ActionListener {
            }
 
            for (AI ai : aiList.keySet()) {
-               g2d.setColor(Color.RED);
+               g2d.setColor(ai.getColor());
                Ellipse2D p = new Ellipse2D.Double(ai.getLocation().getX(), ai.getLocation().getY(), ai.getSize(), ai.getSize());
                g2d.fill(p);
                aiList.put(ai, p);
@@ -106,7 +75,12 @@ public class Game extends JPanel implements ActionListener {
             for(AI ai : aiList.keySet()){
                 System.out.println("Generation: " + ai.getGeneration());
                 System.out.println("Mutation Rate: " + ai.getMutationRate());
-                System.out.println("Reproduction Rate: " + ai.getReproductionRate());
+                System.out.println("Fission Rate: " + ai.getFissionRate());
+                System.out.println("Age of Death: " + ai.getDeathAge());
+                System.out.println("Can Fuse: " + ai.canFuse());
+                System.out.println("Size: " + ai.getSize());
+
+                System.out.println(" ");
 
             }
         }
@@ -115,15 +89,14 @@ public class Game extends JPanel implements ActionListener {
     @Override
     public void actionPerformed(ActionEvent e) {
 
-        // Max number of turns/moves before ending
         if(won){
             return;
         }
 
+        HashMap<AI, Ellipse2D> canFuse = new HashMap<>();
         HashMap<AI, Ellipse2D> temporary = new HashMap<>();
         Iterator iterator = aiList.entrySet().iterator();
         while(iterator.hasNext()){
-
             Map.Entry entry =  (Map.Entry) iterator.next();
             AI ai = (AI) entry.getKey();
             Ellipse2D shape = (Ellipse2D) entry.getValue();
@@ -137,63 +110,33 @@ public class Game extends JPanel implements ActionListener {
             // checks if has collided/died of age
             // Delete and create offspring
             if(checkCollision(ai, shape) || ai.getAge() >= ai.getDeathAge()){
+                // Will go extinct/won't reproduce if died young
                 if(ai.die()){
-                    temporary.put(new AI(ai), new Ellipse2D.Double(120, 100, 20, 20));
+                    temporary.put(new AI(ai, null, survivalX, survivalY), new Ellipse2D.Double(120, 100, 20, 20));
                 }
-                temporary.put(new AI(ai), new Ellipse2D.Double(120, 100, 20, 20));
+                temporary.put(new AI(ai, null, survivalX, survivalY), new Ellipse2D.Double(120, 100, 20, 20));
                 iterator.remove();
                 deaths++;
-                reset = true;
             }else{
                 // After each move, chance to change direction randomly
-                changeDirection(false, ai);
+                ai.changeDirection(false);
                 while(willLose(ai)){
                     // Will for sure change direction and not end up dead
-                    changeDirection(true, ai);
+                    ai.changeDirection(true);
                 }
                 ai.move();
+                if(ai.canFuse()){
+                    canFuse.put(ai, shape);
+                }
             }
         }
         aiList.putAll(temporary);
 
-        repaint();
-    }
-
-    private void changeDirection(boolean preventDeath, AI ai){
-        Location.Direction direction = ai.getDirection();
-
-        // "Prevent death" as true will ensure next move won't be same as last
-        if(preventDeath) {
-            switch (direction) {
-                case RIGHT:
-                    ai.changeDirection(Location.Direction.LEFT);
-                    break;
-                case LEFT:
-                    ai.changeDirection(Location.Direction.UP);
-                    break;
-                case UP:
-                    ai.changeDirection(Location.Direction.DOWN);
-                    break;
-                case DOWN:
-                    ai.changeDirection(Location.Direction.RIGHT);
-                    break;
-            }
-        }else{
-            Random rand = new Random();
-            int chance = rand.nextInt(ai.getStability() + 4);
-            if(chance == 0){
-                ai.changeDirection(Location.Direction.UP);
-            }else if (chance == 1){
-                ai.changeDirection(Location.Direction.DOWN);
-            }else if(chance == 2){
-                ai.changeDirection(Location.Direction.RIGHT);
-            }else if(chance == 3){
-                ai.changeDirection(Location.Direction.LEFT);
-            }else{
-                // (stability - 3) /stability = chance to continue going straight, higher stability = less randomness
-            }
-
+        // Would only check those who even have the chance to fuse
+        if(canFuse.size() > 1){
+            checkFusion(canFuse);
         }
+        repaint();
     }
 
     // Check if colliding with objects
@@ -214,9 +157,10 @@ public class Game extends JPanel implements ActionListener {
 
     // If AI continues with direction, will it collide based on previous knowledge?
     private boolean willLose(AI ai){
-        return ai.getDeaths().contains(ai.getLocation());
+        return (ai.getDeaths() != null && ai.getDeaths().contains(ai.getLocation()));
     }
 
+    // Is intersecting the survival box
     private boolean survived(Ellipse2D shape){
         if(survivalBox != null){
             return survivalBox.getBounds2D().intersects(shape.getBounds2D());
@@ -224,4 +168,28 @@ public class Game extends JPanel implements ActionListener {
         return false;
     }
 
+    // Check if those who can fuse, are colliding to fuse
+    private void checkFusion(HashMap<AI, Ellipse2D> checkList){
+
+        HashMap<AI, Ellipse2D> toAdd = new HashMap<>();
+        HashSet<AI> toRemove = new HashSet<>();
+
+        Iterator iterator = checkList.entrySet().iterator();
+        while(iterator.hasNext()){
+            Map.Entry entry =  (Map.Entry) iterator.next();
+            AI ai = (AI) entry.getKey();
+            Ellipse2D shape = (Ellipse2D) entry.getValue();
+
+            for(AI ai2 : aiList.keySet()){
+                if(ai2 != ai && shape.getBounds2D().intersects(aiList.get(ai2).getBounds2D()) && !toRemove.contains(ai)){
+                    toAdd.put(new AI(ai, ai2, survivalX, survivalY), new Ellipse2D.Double(120, 100, 20, 20));
+                    iterator.remove();
+                    toRemove.add(ai2);
+                }
+            }
+
+        }
+        aiList.putAll(toAdd);
+        aiList.keySet().removeAll(toRemove);
+    }
 }

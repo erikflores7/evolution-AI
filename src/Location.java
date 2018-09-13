@@ -5,7 +5,7 @@ public class Location {
     private Direction direction;
 
     public enum Direction{
-        RIGHT, LEFT, DOWN, UP
+        RIGHT, LEFT, DOWN, UP, ALL
     }
 
     public Location(int x, int y, Direction direction){

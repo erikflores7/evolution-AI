@@ -11,10 +11,11 @@ a new circle that is smarter and remembers what caused the previous death. With 
  Fusion is a mutation that can be attained and happens when 2 circles that can fuse collide, most traits are either the first or second's
  but some are added together
 
-   TODO:
-* Add menu and ability to change starting settings
-* Make sure spawn does not already have a block of death/survival
-* Add chance for going extinct and losing if dying before reproducing or something similar
-* Add better random generation of landscape
-* Make sure size doesn't affect death memory, Eg. Being smaller might allow movement through places where before would cause death
+ After more time, now looks at tiles nearby instead of just coordinates. This greatly improves speed and prevents death and learns much quicker
+ Also makes sure to get through every tile if there is a dead end instead of just getting stuck in loop
 
+ Added random map generation with 100% chance of always being a way to get to end
+
+   TODO:
+* Improve random map generation and add starting with random movement again, however currently takes a while to get there
+* Right now set to start at last evolution, will change later

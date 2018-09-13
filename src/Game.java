@@ -3,6 +3,7 @@ import java.awt.event.*;
 import java.awt.geom.Ellipse2D;
 import java.awt.geom.Rectangle2D;
 import java.util.*;
+import java.util.Map;
 import javax.swing.*;
 import javax.swing.Timer;
 
@@ -16,17 +17,31 @@ public class Game extends JPanel implements ActionListener {
 
     private boolean won = false;
 
-    private ArrayList<Rectangle2D> collision = new ArrayList<>();
+    private ArrayList<Rectangle> collision = new ArrayList<>();
     private Rectangle2D survivalBox;
     private int survivalX, survivalY;
+
+    private boolean start = false;
 
     private int deaths = 0;
 
     private HashMap<AI, Ellipse2D> aiList = new HashMap<>();
 
+    Board map;
+
     public Game() {
         setFocusable(true);
         setFocusTraversalKeysEnabled(false);
+
+        map = new Board(12, 12, 40);
+        survivalBox = map.getWinTile().getShape();
+        survivalY = map.getWinTile().getRealY();
+        survivalX = map.getWinTile().getRealX();
+        for(Tile collisionTile : map.getTiles()){
+            if(collisionTile.isActive()){
+                collision.add(collisionTile.getShape());
+            }
+        }
 
         t.setInitialDelay(200);
         t.start();
@@ -39,20 +54,29 @@ public class Game extends JPanel implements ActionListener {
         height = getHeight();
         width = getWidth();
 
-       if(!won){
-           if (collision.isEmpty()) {
-               for (int i = 0; i < 26; i++) {
+        if(survivalY == 0) {
+            // WAIT
+        }else if(!won){
+           if (!start) {
+               /*for (int i = 0; i < 26; i++) {
                    Rectangle2D rect = new Rectangle((int) Math.floor(Math.random() * width - 10), (int) Math.floor(Math.random() * height / 2 - 10), 20, 20);
                    collision.add(rect);
-               }
-               survivalX = (int) Math.floor(Math.random() * width - 20);
-               survivalY = (int) Math.floor(Math.random() * height / 2 - 20);
-               survivalBox = new Rectangle(survivalX, survivalY, 40, 40);
-               aiList.put(new AI(null, null, survivalX, survivalY), new Ellipse2D.Double(120, 100, 20, 20));
+               }*/
+               //survivalX = (int) Math.floor(Math.random() * width - 20);
+               //survivalY = (int) Math.floor(Math.random() * height / 2 - 20);
+               //survivalBox = new Rectangle(survivalX, survivalY, 40, 40);
+
+               aiList.put(new AI(null, null, survivalX, survivalY), new Ellipse2D.Double(20, 20, 20, 20));
+                start = true;
            }
 
-           for (Rectangle2D aCollision : collision) {
+           /*for (Rectangle2D aCollision : collision) {
                g2d.fill(aCollision);
+           }*/
+
+           for(Tile tiles : map.getTiles()){
+               g2d.setColor(tiles.getColor());
+               g2d.fill(tiles.getShape());
            }
 
            for (AI ai : aiList.keySet()) {
@@ -66,7 +90,7 @@ public class Game extends JPanel implements ActionListener {
            g2d.fill(survivalBox);
 
            String deathCount = "Deaths: " + deaths;
-           g2d.drawString(deathCount, width / 2 - 40, height / 2);
+           g2d.drawString(deathCount, width / 2 - 40, 3 * height / 4);
        }else{
             g2d.setColor(Color.BLACK);
             g2d.drawString("You evolved enough to make it out!", 20, (height/2) + 20);
@@ -152,10 +176,11 @@ public class Game extends JPanel implements ActionListener {
         }
         int x = ai.getLocation().getX();
         int y = ai.getLocation().getY();
-        return x >= width - 10|| x <= 0 || y <= 0 || y >= height / 2;
+        return x >= 12 * 40 || x <= 0 || y <= 0 || y >= 12 * 40;
     }
 
     // If AI continues with direction, will it collide based on previous knowledge?
+    // replace this
     private boolean willLose(AI ai){
         return (ai.getDeaths() != null && ai.getDeaths().contains(ai.getLocation()));
     }
@@ -174,16 +199,15 @@ public class Game extends JPanel implements ActionListener {
         HashMap<AI, Ellipse2D> toAdd = new HashMap<>();
         HashSet<AI> toRemove = new HashSet<>();
 
-        Iterator iterator = checkList.entrySet().iterator();
-        while(iterator.hasNext()){
-            Map.Entry entry =  (Map.Entry) iterator.next();
+        for (Object o : checkList.entrySet()) {
+            Map.Entry entry = (Map.Entry) o;
             AI ai = (AI) entry.getKey();
             Ellipse2D shape = (Ellipse2D) entry.getValue();
 
-            for(AI ai2 : aiList.keySet()){
-                if(ai2 != ai && shape.getBounds2D().intersects(aiList.get(ai2).getBounds2D()) && !toRemove.contains(ai)){
+            for (AI ai2 : aiList.keySet()) {
+                if (ai2 != ai && shape.getBounds2D().intersects(aiList.get(ai2).getBounds2D()) && !toRemove.contains(ai)) {
                     toAdd.put(new AI(ai, ai2, survivalX, survivalY), new Ellipse2D.Double(120, 100, 20, 20));
-                    iterator.remove();
+                    toRemove.add(ai);
                     toRemove.add(ai2);
                 }
             }
